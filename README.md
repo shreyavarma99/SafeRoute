@@ -98,18 +98,61 @@ A route scoring **85%** means the average city block it passes through is 85% of
 
 ---
 
-## Getting Started
+---
 
-You'll need Node.js 18+ and a free [Mapbox account](https://account.mapbox.com).
+### Installation
 
+**1. Clone the repo**
 ```bash
-# Backend
-cd backend && cp .env.example .env   # add your MAPBOX_TOKEN
-npm install && node index.js         # runs on localhost:3001
+git clone https://github.com/your-username/saferoute.git
+cd saferoute
+```
 
-# Frontend (new terminal)
-cd frontend && cp .env.example .env  # add your VITE_MAPBOX_TOKEN
-npm install && npm run dev           # runs on localhost:5173
+**2. Set up the backend**
+```bash
+cd backend
+cp .env.example .env
+```
+
+Open `.env` and add your token:
+```env
+MAPBOX_TOKEN=pk.your_token_here
+```
+
+Install and start:
+```bash
+npm install
+node index.js
+```
+> Backend runs on [http://localhost:3001](http://localhost:3001)
+
+---
+
+**3. Set up the frontend** *(open a new terminal)*
+```bash
+cd frontend
+cp .env.example .env
+```
+
+Open `.env` and add your token:
+```env
+VITE_MAPBOX_TOKEN=pk.your_token_here
+```
+
+Install and start:
+```bash
+npm install
+npm run dev
+```
+> Frontend runs on [http://localhost:5173](http://localhost:5173)
+
+---
+
+**4. Open the app**
+
+Navigate to [http://localhost:5173](http://localhost:5173). Rocky will walk you through the rest.
+
+---
 ```
 
 ---
