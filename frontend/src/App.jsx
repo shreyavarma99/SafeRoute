@@ -191,6 +191,14 @@ function RouteTracker({ pins, pinNames, route, loading, mode, error }) {
               {route.receipt.map((line, i) => <div key={i}>{line}</div>)}
             </div>
           )}
+          {mode === 'walking' && route.vibes?.length > 0 && (
+            <div className="street-vibes">
+              <div className="vibes-title">🛣️ Street activity right now:</div>
+              {route.vibes.map((v, i) => (
+                <div key={i} className={`vibe-row vibe-${v.vibe}`}>{v.note}</div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -281,7 +289,19 @@ export default function App() {
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
-      setRoute({ geometry: data.geometry, pins: { start, dest }, safetyScore: data.safetyScore, duration: data.duration, receipt: data.receipt, dangerRoute: data.dangerRoute })
+      setRoute({ geometry: data.geometry, pins: { start, dest }, safetyScore: data.safetyScore, duration: data.duration, receipt: data.receipt, dangerRoute: data.dangerRoute, streets: data.streets })
+
+      // Fetch street vibes for walking routes
+      if (mode === 'walking' && data.streets?.length) {
+        fetch('http://localhost:3001/api/street-vibe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ streets: data.streets.slice(0, 5) }),
+        })
+          .then(r => r.json())
+          .then(v => setRoute(r => r ? { ...r, vibes: v.vibes } : r))
+          .catch(() => {})
+      }
     } catch (e) {
       setRouteError(e.message)
     } finally {

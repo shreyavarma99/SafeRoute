@@ -631,3 +631,30 @@ html, body, #root {
   padding: 0;
 }
 .go-now-reset:hover { color: #7d8590; }
+
+/* ── Street vibes ── */
+.street-vibes {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.vibes-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #7d8590;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 2px;
+}
+.vibe-row {
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 6px 8px;
+  border-radius: 6px;
+  color: #c9d1d9;
+}
+.vibe-busy     { background: rgba(34,197,94,0.1);  border-left: 3px solid #22c55e; }
+.vibe-moderate { background: rgba(234,179,8,0.1);  border-left: 3px solid #eab308; }
+.vibe-quiet    { background: rgba(239,68,68,0.1);  border-left: 3px solid #ef4444; }
+.vibe-calm     { background: rgba(99,179,237,0.08); border-left: 3px solid #60a5fa; }

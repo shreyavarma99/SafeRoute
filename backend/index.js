@@ -270,4 +270,66 @@ app.get('/api/incidents', async (req, res) => {
   }
 })
 
+// POST /api/street-vibe  body: { streets: string[] }
+// Returns activity level per street based on recent 311 noise/activity reports
+app.post('/api/street-vibe', async (req, res) => {
+  try {
+    const { streets = [] } = req.body
+    if (!streets.length) return res.json({ vibes: [] })
+
+    const hour = new Date().getHours()
+    const isLateNight = hour >= 23 || hour < 5
+    const isNight = hour >= 20 || hour < 7
+
+    // Fetch recent noise + activity complaints (last 6h) near these streets
+    const since = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString().slice(0, 19)
+    const noiseTypes = `complaint_type IN('Noise - Street/Sidewalk','Noise - Vehicle','Noise - Commercial','Blocked Driveway','Illegal Parking')`
+    const url = `https://data.cityofnewyork.us/resource/erm2-nwe9.json` +
+      `?$limit=1000&$where=created_date>'${since}' AND ${noiseTypes}` +
+      `&$select=incident_address,complaint_type,created_date`
+    const data = await (await fetch(url)).json()
+
+    // Count activity per street name fragment
+    const activityMap = {}
+    for (const d of data) {
+      const addr = (d.incident_address ?? '').toUpperCase()
+      for (const street of streets) {
+        const key = street.toUpperCase()
+        if (addr.includes(key)) {
+          activityMap[street] = (activityMap[street] ?? 0) + 1
+        }
+      }
+    }
+
+    const vibes = streets.map(street => {
+      const count = activityMap[street] ?? 0
+      let vibe, note
+
+      if (count >= 5) {
+        vibe = 'busy'
+        note = `${street} has lots of activity right now — people around, feels lively 👍`
+      } else if (count >= 2) {
+        vibe = 'moderate'
+        note = `${street} has some activity — seems reasonably populated right now`
+      } else if (isLateNight) {
+        vibe = 'quiet'
+        note = `${street} is unusually quiet right now — it's late and there's barely any activity. Stay alert 👀`
+      } else if (isNight) {
+        vibe = 'quiet'
+        note = `${street} seems quiet for this hour — not much going on. Keep your wits about you 🌙`
+      } else {
+        vibe = 'calm'
+        note = `${street} looks calm and normal for this time of day ✅`
+      }
+
+      return { street, count, vibe, note }
+    })
+
+    res.json({ vibes })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
 app.listen(3001, () => console.log('SafeRoute backend running on http://localhost:3001'))
