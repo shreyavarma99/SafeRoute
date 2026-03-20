@@ -28,8 +28,6 @@ If a risky route exists, SafeRoute flags it too — telling you exactly which st
 ### 📍 Live Incident Reports
 The 500 most recent reported incidents are shown as pulsing dots on the map. Tap any dot to see the complaint type, address, time reported, and current status.
 
-Incidents shown include:
-
 | Category | Examples |
 |---|---|
 | 🔊 Noise | Noise - Street/Sidewalk, Noise - Vehicle, Noise - Commercial |
@@ -98,13 +96,21 @@ A route scoring **85%** means the average city block it passes through is 85% of
 
 ---
 
----
+## Getting Started
+
+### Prerequisites
+
+| Requirement | Version | Notes |
+|---|---|---|
+| Node.js | 18+ | [Download here](https://nodejs.org) |
+| npm | 9+ | Comes with Node.js |
+| Mapbox account | Free tier | [Sign up here](https://account.mapbox.com) — grab a public token from your dashboard |
 
 ### Installation
 
 **1. Clone the repo**
 ```bash
-git clone https://github.com/your-username/saferoute.git
+git clone https://github.com/shreyavarma99/SafeRoute.git
 cd saferoute
 ```
 
@@ -124,9 +130,7 @@ Install and start:
 npm install
 node index.js
 ```
-> Backend runs on [http://localhost:3001](http://localhost:3001)
-
----
+> Backend runs on http://localhost:3001
 
 **3. Set up the frontend** *(open a new terminal)*
 ```bash
@@ -144,16 +148,19 @@ Install and start:
 npm install
 npm run dev
 ```
-> Frontend runs on [http://localhost:5173](http://localhost:5173)
-
----
+> Frontend runs on http://localhost:5173
 
 **4. Open the app**
 
-Navigate to [http://localhost:5173](http://localhost:5173). Rocky will walk you through the rest.
+Navigate to http://localhost:5173. Rocky will walk you through the rest.
 
----
-```
+### Troubleshooting
+
+**Map not loading?** Double-check your `VITE_MAPBOX_TOKEN` in `frontend/.env` — it needs to start with `pk.`
+
+**No routes showing?** Make sure the backend is running on port 3001 before starting the frontend.
+
+**CORS errors?** Both servers need to be running simultaneously — backend first, then frontend.
 
 ---
 
@@ -163,9 +170,9 @@ SafeRoute currently runs on NYC data — NYPD complaints and 311 requests are so
 
 The architecture is city-agnostic. As SafeRoute scales, the plan is to plug in equivalent open data sources from cities across the US and eventually globally — bringing the same real-time safety layer to every major city. The grid-based scoring system, routing engine, and UI work the same regardless of the data source underneath.
 
----
-<img width="133" height="49" alt="image" src="https://github.com/user-attachments/assets/6527dd00-2ec8-43b0-ba83-72ad0d7203c1" />
+Currently, running SafeRoute locally requires your own Mapbox token for maps and routing. In a production version, this would be handled on the backend — users would just open the app, no setup needed.
 
+---
 
 ## How It All Fits Together
 
@@ -201,6 +208,4 @@ The architecture is city-agnostic. As SafeRoute scales, the plan is to plug in e
 
 *Built because getting there safely matters more than getting there fast.*
 
-
-**Github link:** https://github.com/shreyavarma99/SafeRoute
-**Demo:** 
+**GitHub:** https://github.com/shreyavarma99/SafeRoute
