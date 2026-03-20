@@ -6,22 +6,37 @@ const fetch = require('node-fetch')
 const app = express()
 app.use(cors())
 
-const GRID_SIZE = 0.008 // ~0.8km cells
+const GRID_SIZE = 0.001 // ~100m cells — street level
 
-// Fetch recent NYPD complaints from NYC Open Data (last 90 days, up to 5000 rows)
+// Fetch live NYC 311 service calls (last 7 days, up to 50k rows)
+// Dataset: https://data.cityofnewyork.us/resource/erm2-nwe9.json
 async function fetchCrimeData() {
-  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10)
 
-  const url =
-    `https://data.cityofnewyork.us/resource/5uac-w243.json` +
-    `?$limit=5000&$where=cmplnt_fr_dt>'${ninetyDaysAgo}'` +
-    `&$select=latitude,longitude,law_cat_cd`
+  // Use NYPD complaint data for crime, 311 for disorder — merge both
+  const [crimeRes, callsRes] = await Promise.all([
+    fetch(
+      `https://data.cityofnewyork.us/resource/5uac-w243.json` +
+      `?$limit=25000&$where=cmplnt_fr_dt>'${sevenDaysAgo}'` +
+      `&$select=latitude,longitude,law_cat_cd`
+    ),
+    fetch(
+      `https://data.cityofnewyork.us/resource/erm2-nwe9.json` +
+      `?$limit=25000&$where=created_date>'${sevenDaysAgo}T00:00:00'` +
+      `&$select=latitude,longitude,complaint_type`
+    ),
+  ])
 
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`NYC API error: ${res.status}`)
-  return res.json()
+  const [crimes, calls] = await Promise.all([crimeRes.json(), callsRes.json()])
+
+  // Normalise 311 calls to same shape with low severity
+  const normalised311 = calls
+    .filter(c => c.latitude && c.longitude)
+    .map(c => ({ latitude: c.latitude, longitude: c.longitude, law_cat_cd: 'VIOLATION' }))
+
+  return [...(Array.isArray(crimes) ? crimes : []), ...normalised311]
 }
 
 // Weight by offense severity
@@ -80,7 +95,7 @@ let cache = null
 let cacheTime = 0
 
 async function getZones() {
-  if (cache && Date.now() - cacheTime < 10 * 60 * 1000) return cache
+  if (cache && Date.now() - cacheTime < 5 * 60 * 1000) return cache
   const crimes = await fetchCrimeData()
   cache = buildZones(crimes)
   cacheTime = Date.now()
@@ -101,6 +116,24 @@ function scoreRoute(coords, zones) {
     total += grid[key] ?? 1
   }
   return total / coords.length
+}
+
+// Get incidents that fall within cells along a route
+function getIncidentsAlongRoute(coords, zones) {
+  const cellKeys = new Set()
+  for (const [lng, lat] of coords) {
+    cellKeys.add(`${Math.floor(lat / GRID_SIZE)},${Math.floor(lng / GRID_SIZE)}`)
+  }
+  const incidents = []
+  for (const f of zones.features) {
+    const [minLng, minLat] = f.geometry.coordinates[0][0]
+    const key = `${Math.floor(minLat / GRID_SIZE)},${Math.floor(minLng / GRID_SIZE)}`
+    if (cellKeys.has(key) && f.properties.count > 0) {
+      incidents.push({ count: f.properties.count, safety: f.properties.safety })
+    }
+  }
+  incidents.sort((a, b) => a.safety - b.safety) // worst first
+  return incidents
 }
 
 app.get('/api/zones', async (req, res) => {
@@ -130,11 +163,11 @@ app.post('/api/route', async (req, res) => {
     const destCoord = geoData.features?.[0]?.center
     if (!destCoord) return res.status(400).json({ error: 'Destination not found' })
 
-    // Fetch up to 3 alternative routes
+    // Fetch up to 3 alternative routes — request steps for street names
     const dirRes = await fetch(
       `https://api.mapbox.com/directions/v5/${profile}/` +
       `${origin[0]},${origin[1]};${destCoord[0]},${destCoord[1]}` +
-      `?alternatives=true&geometries=geojson&overview=full&access_token=${token}`
+      `?alternatives=true&geometries=geojson&overview=full&steps=true&access_token=${token}`
     )
     const dirData = await dirRes.json()
     const routes = dirData.routes
@@ -147,17 +180,58 @@ app.post('/api/route', async (req, res) => {
       geometry: r.geometry,
       duration: r.duration,
       distance: r.distance,
+      steps: r.legs?.flatMap(l => l.steps) ?? [],
       safety: scoreRoute(r.geometry.coordinates, zones),
     }))
     scored.sort((a, b) => b.safety - a.safety)
     const best = scored[0]
 
+    // Extract unique street names from steps
+    const streets = [...new Set(
+      (best.steps ?? [])
+        .map(s => s.name)
+        .filter(n => n && n.trim())
+    )]
+
+    // Build receipt explanation
+    const pct = Math.round(best.safety * 100)
+    const worst = scored[scored.length - 1]
+    const avoided = scored.slice(1).map(r => Math.round(r.safety * 100))
+    const receiptLines = [
+      `📍 Route via: ${streets.slice(0, 5).join(' → ')}`,
+      `🛡️ Safety score: ${pct}% — ${pct >= 80 ? 'very safe corridor' : pct >= 60 ? 'mostly safe' : pct >= 40 ? 'moderate risk' : 'use caution'}`,
+      avoided.length ? `✅ Avoided ${avoided.length} riskier route${avoided.length > 1 ? 's' : ''} (scored ${avoided.join('%, ')}%)` : null,
+      `⏱ ~${Math.round(best.duration / 60)} min ${mode === 'driving' ? 'drive' : 'walk'} · ${(best.distance / 1000).toFixed(1)}km`,
+    ].filter(Boolean)
+
+    // Worst route incidents
+    let dangerRoute = null
+    if (worst !== best) {
+      const worstIncidents = getIncidentsAlongRoute(worst.geometry.coordinates, zones)
+      const totalIncidents = worstIncidents.reduce((s, i) => s + i.count, 0)
+      const worstStreets = [...new Set((worst.steps ?? []).map(s => s.name).filter(Boolean))]
+      dangerRoute = {
+        geometry: worst.geometry,
+        safetyScore: Math.round(worst.safety * 100),
+        totalIncidents,
+        streets: worstStreets.slice(0, 4),
+        warning: [
+          `⚠️ Riskier route via: ${worstStreets.slice(0, 3).join(' → ')}`,
+          `🚨 ${totalIncidents} incidents recorded in this area (last 7 days)`,
+          `🛡️ Safety score: ${Math.round(worst.safety * 100)}% — avoid if possible`,
+        ],
+      }
+    }
+
     res.json({
       geometry: best.geometry,
       destination: geoData.features[0].place_name,
       destCoord,
-      safetyScore: Math.round(best.safety * 100),
+      safetyScore: pct,
       duration: Math.round(best.duration / 60),
+      streets,
+      receipt: receiptLines,
+      dangerRoute,
     })
   } catch (err) {
     console.error(err)

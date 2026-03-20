@@ -53,17 +53,21 @@ html, body, #root {
 
 /* ── Chat panel ── */
 .chat-panel {
-  width: 320px;
+  width: 380px;
   background: #161b22;
   border: 1px solid rgba(99, 179, 237, 0.2);
-  border-radius: 16px;
+  border-radius: 16px 16px 0 0;
   overflow: hidden;
-  margin-bottom: 8px;
   box-shadow:
     0 0 0 1px rgba(99, 179, 237, 0.05),
     0 20px 60px rgba(0, 0, 0, 0.6),
     0 0 40px rgba(99, 179, 237, 0.05);
   animation: slideUp 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  resize: vertical;
+  min-height: 320px;
+  max-height: 80vh;
 }
 
 @keyframes slideUp {
@@ -124,8 +128,7 @@ html, body, #root {
 
 .chat-messages {
   padding: 16px;
-  min-height: 80px;
-  max-height: 200px;
+  flex: 1;
   overflow-y: auto;
 }
 
@@ -488,4 +491,67 @@ html, body, #root {
   font-size: 12px;
   color: #f87171;
   line-height: 1.4;
+}
+
+.route-receipt {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: #0d1117;
+  border: 1px solid rgba(99,179,237,0.15);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11.5px;
+  color: #8b949e;
+  line-height: 1.5;
+}
+.route-receipt div { color: #c9d1d9; }
+
+/* ── Draggable route cards ── */
+.draggable-card {
+  position: absolute;
+  z-index: 50;
+  width: 260px;
+  background: rgba(22, 27, 34, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(99, 179, 237, 0.2);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  overflow: hidden;
+  user-select: none;
+}
+
+.draggable-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: #0d1117;
+  cursor: grab;
+  border-bottom: 1px solid rgba(99,179,237,0.1);
+}
+.draggable-card-header:active { cursor: grabbing; }
+
+.draggable-card-close {
+  background: none;
+  border: none;
+  color: #7d8590;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  line-height: 1;
+}
+.draggable-card-close:hover { color: #e6edf3; background: rgba(255,255,255,0.06); }
+
+.draggable-card-body {
+  padding: 10px 12px;
+  font-family: Inter, sans-serif;
+  font-size: 12px;
+  color: #c9d1d9;
+  line-height: 1.7;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }

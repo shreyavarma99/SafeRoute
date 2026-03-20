@@ -87,11 +87,10 @@ function RaccoonSVG() {
   )
 }
 
-function RouteTracker({ pins, pinNames, route, loading, mode, onSubmit, error }) {
+function RouteTracker({ pins, pinNames, route, loading, mode, error }) {
   const hasStart = !!pins.start
   const hasDest  = !!pins.dest
   const done     = hasStart && hasDest && !loading && route
-  const ready    = hasStart && hasDest && !loading && !route
 
   return (
     <div className="route-tracker">
@@ -123,17 +122,17 @@ function RouteTracker({ pins, pinNames, route, loading, mode, onSubmit, error })
         {!hasStart && !hasDest && (
           <p className="route-hint">Search a location and set your start &amp; destination</p>
         )}
-        {ready && (
-          <button className="submit-route-btn" onClick={onSubmit}>
-            🗺️ Find Safest Route
-          </button>
-        )}
         {loading && <div className="route-finding">Finding safest route…</div>}
         {error && <div className="route-error">⚠️ {error}</div>}
         {done && (
           <div className="route-result">
             <span>🛡️ {route.safetyScore}% safe</span>
             <span>⏱ ~{route.duration} min {mode === 'walking' ? 'walk' : 'drive'}</span>
+            {route.receipt?.length > 0 && (
+              <div className="route-receipt">
+                {route.receipt.map((line, i) => <div key={i}>{line}</div>)}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -141,8 +140,40 @@ function RouteTracker({ pins, pinNames, route, loading, mode, onSubmit, error })
   )
 }
 
+function DraggableCard({ title, titleColor, lines, initialPos, onClose }) {
+  const [pos, setPos] = useState(initialPos)
+  const dragging = useRef(null)
+
+  function onMouseDown(e) {
+    dragging.current = { startX: e.clientX - pos.x, startY: e.clientY - pos.y }
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+  }
+  function onMouseMove(e) {
+    if (!dragging.current) return
+    setPos({ x: e.clientX - dragging.current.startX, y: e.clientY - dragging.current.startY })
+  }
+  function onMouseUp() {
+    dragging.current = null
+    window.removeEventListener('mousemove', onMouseMove)
+    window.removeEventListener('mouseup', onMouseUp)
+  }
+
+  return (
+    <div className="draggable-card" style={{ left: pos.x, top: pos.y }}>
+      <div className="draggable-card-header" onMouseDown={onMouseDown}>
+        <span style={{ color: titleColor, fontWeight: 700, fontSize: 13 }}>{title}</span>
+        <button className="draggable-card-close" onClick={onClose}>✕</button>
+      </div>
+      <div className="draggable-card-body">
+        {lines.map((l, i) => <div key={i}>{l}</div>)}
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   const [searchInput, setSearchInput] = useState('')
   const [suggestions, setSuggestions] = useState([])
   const [pins, setPins] = useState({ start: null, dest: null })
@@ -182,25 +213,38 @@ export default function App() {
 
   const [routeError, setRouteError] = useState(null)
 
-  async function submitRoute() {
-    if (!pins.start || !pins.dest || loading) return
+  async function runRoute(start, dest, destName) {
     setLoading(true)
     setRouteError(null)
     try {
       const res = await fetch('http://localhost:3001/api/route', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ origin: pins.start, destination: pinNames.dest, mode }),
+        body: JSON.stringify({ origin: start, destination: destName, mode }),
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
-      setRoute({ geometry: data.geometry, pins, safetyScore: data.safetyScore, duration: data.duration })
+      setRoute({ geometry: data.geometry, pins: { start, dest }, safetyScore: data.safetyScore, duration: data.duration, receipt: data.receipt, dangerRoute: data.dangerRoute })
     } catch (e) {
       setRouteError(e.message)
     } finally {
       setLoading(false)
     }
   }
+
+  const [showSafeCard, setShowSafeCard] = useState(true)
+  const [showDangerCard, setShowDangerCard] = useState(true)
+
+  // Reset card visibility when new route is calculated
+  useEffect(() => {
+    if (route) { setShowSafeCard(true); setShowDangerCard(true) }
+  }, [route?.geometry])
+  useEffect(() => {
+    if (pins.start && pins.dest) {
+      setRoute(null)
+      runRoute(pins.start, pins.dest, pinNames.dest)
+    }
+  }, [pins, mode])
 
   return (
     <div className="app-wrapper">
@@ -237,6 +281,26 @@ export default function App() {
         </div>
       </div>
 
+      {/* Draggable route info cards — outside map-frame to avoid canvas stacking context */}
+      {route && showSafeCard && (
+        <DraggableCard
+          title="🗺️ Safest Route"
+          titleColor="#60a5fa"
+          lines={route.receipt?.length > 0 ? route.receipt : [`🛡️ Safety score: ${route.safetyScore}%`, `⏱ ~${route.duration} min ${mode === 'walking' ? 'walk' : 'drive'}`]}
+          initialPos={{ x: 80, y: 80 }}
+          onClose={() => setShowSafeCard(false)}
+        />
+      )}
+      {route?.dangerRoute && showDangerCard && (
+        <DraggableCard
+          title="⚠️ Risky Route"
+          titleColor="#ef4444"
+          lines={route.dangerRoute.warning?.length > 0 ? route.dangerRoute.warning : [`Safety score: ${route.dangerRoute.safetyScore}%`, `Incidents: ${route.dangerRoute.totalIncidents}`]}
+          initialPos={{ x: 80, y: 280 }}
+          onClose={() => setShowDangerCard(false)}
+        />
+      )}
+
       <div className="chat-widget">
         {open && (
           <div className="chat-panel">
@@ -254,7 +318,7 @@ export default function App() {
             </div>
 
             <div className="chat-messages">
-              <RouteTracker pins={pins} pinNames={pinNames} route={route} loading={loading} mode={mode} onSubmit={submitRoute} error={routeError} />
+              <RouteTracker pins={pins} pinNames={pinNames} route={route} loading={loading} mode={mode} error={routeError} />
               {pins.start && pins.dest && (
                 <button className="clear-btn" onClick={() => { setPins({ start: null, dest: null }); setRoute(null) }}>
                   Clear route
