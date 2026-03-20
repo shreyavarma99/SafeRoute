@@ -42,7 +42,7 @@ html, body, #root {
 /* ── Chat widget (bottom-left) ── */
 .chat-widget {
   position: fixed;
-  bottom: 0;
+  bottom: 24px;
   left: 16px;
   z-index: 100;
   display: flex;
@@ -51,12 +51,12 @@ html, body, #root {
   gap: 0;
 }
 
-/* ── Chat panel ── */
+/* ── Chat panel (speech bubble) ── */
 .chat-panel {
-  width: 380px;
+  width: 360px;
   background: #161b22;
-  border: 1px solid rgba(99, 179, 237, 0.2);
-  border-radius: 16px 16px 0 0;
+  border: 1px solid rgba(99, 179, 237, 0.25);
+  border-radius: 16px 16px 16px 4px;
   overflow: hidden;
   box-shadow:
     0 0 0 1px rgba(99, 179, 237, 0.05),
@@ -66,8 +66,34 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   min-height: 320px;
-  height: min(560px, calc(100vh - 180px));
-  max-height: calc(100vh - 180px);
+  height: min(520px, calc(100vh - 220px));
+  max-height: calc(100vh - 220px);
+  position: relative;
+}
+
+/* Speech bubble tail pointing down toward Rocky */
+.chat-panel::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 64px;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 10px solid rgba(99, 179, 237, 0.25);
+}
+.chat-panel::before {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 65px;
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 9px solid #161b22;
+  z-index: 1;
 }
 
 @keyframes slideUp {
@@ -240,14 +266,17 @@ html, body, #root {
   cursor: pointer;
   padding: 0;
   display: block;
-  width: 160px;
-  filter: drop-shadow(0 8px 24px rgba(0,0,0,0.6));
-  transition: filter 0.2s;
+  width: 170px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 6px 18px rgba(0,0,0,0.55));
+  transition: filter 0.2s, transform 0.2s;
   animation: bodyBob 3s ease-in-out infinite;
   transform-origin: bottom center;
 }
 .raccoon-btn:hover {
-  filter: drop-shadow(0 8px 32px rgba(99,179,237,0.4));
+  filter: drop-shadow(0 8px 28px rgba(99,179,237,0.45));
+  transform: scale(1.04);
+  animation-play-state: paused;
 }
 
 .raccoon-svg {
@@ -658,3 +687,7 @@ html, body, #root {
 .vibe-moderate { background: rgba(234,179,8,0.1);  border-left: 3px solid #eab308; }
 .vibe-quiet    { background: rgba(239,68,68,0.1);  border-left: 3px solid #ef4444; }
 .vibe-calm     { background: rgba(99,179,237,0.08); border-left: 3px solid #60a5fa; }
+
+.vibe-legend { display: flex; flex-direction: column; gap: 5px; }
+.vibe-legend-row { display: flex; align-items: center; gap: 7px; font-size: 11px; color: #7d8590; }
+.vibe-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; opacity: 0.8; }

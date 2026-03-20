@@ -260,6 +260,45 @@ const Map = forwardRef(function Map({ center = [-74.006, 40.7128], zoom = 12, ro
     map.isStyleLoaded() ? update() : map.once('load', update)
   }, [route?.geometry])
 
+  // Color route segments by hardcoded vibe colors for demo
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !route?.geometry) return
+
+    const VIBE_COLORS = ['#22c55e', '#eab308', '#60a5fa', '#ef4444', '#22c55e', '#eab308']
+    const coords = route.geometry.coordinates
+    const numSegments = Math.min(6, Math.max(3, Math.floor(coords.length / 8)))
+    const segSize = Math.floor(coords.length / numSegments)
+
+    const apply = () => {
+      // Hide the plain blue route-line so segments show through
+      if (map.getLayer('route-line')) map.setPaintProperty('route-line', 'line-opacity', 0)
+
+      for (let i = 0; i < numSegments; i++) {
+        const start = i * segSize
+        const end = i === numSegments - 1 ? coords.length : start + segSize + 1
+        const segCoords = coords.slice(start, end)
+        if (segCoords.length < 2) continue
+        const srcId = `vibe-demo-src-${i}`, layerId = `vibe-demo-layer-${i}`
+        if (map.getLayer(layerId)) map.removeLayer(layerId)
+        if (map.getSource(srcId)) map.removeSource(srcId)
+        map.addSource(srcId, { type: 'geojson', data: { type: 'Feature', geometry: { type: 'LineString', coordinates: segCoords } } })
+        map.addLayer({ id: layerId, type: 'line', source: srcId, paint: { 'line-color': VIBE_COLORS[i % VIBE_COLORS.length], 'line-width': 7, 'line-opacity': 0.9 }, layout: { 'line-join': 'round', 'line-cap': 'round' } })
+      }
+    }
+
+    map.isStyleLoaded() ? apply() : map.once('idle', apply)
+
+    return () => {
+      if (map.getLayer('route-line')) map.setPaintProperty('route-line', 'line-opacity', 0.95)
+      for (let i = 0; i < numSegments; i++) {
+        const layerId = `vibe-demo-layer-${i}`, srcId = `vibe-demo-src-${i}`
+        if (map.getLayer(layerId)) map.removeLayer(layerId)
+        if (map.getSource(srcId)) map.removeSource(srcId)
+      }
+    }
+  }, [route?.geometry])
+
   return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
 })
 

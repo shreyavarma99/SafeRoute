@@ -193,6 +193,14 @@ app.post('/api/route', async (req, res) => {
         .filter(n => n && n.trim())
     )]
 
+    // Step geometries keyed by street name for frontend coloring
+    const stepGeometries = {}
+    for (const s of best.steps ?? []) {
+      if (!s.name?.trim() || !s.geometry) continue
+      if (!stepGeometries[s.name]) stepGeometries[s.name] = []
+      stepGeometries[s.name].push(...s.geometry.coordinates)
+    }
+
     // Build receipt explanation
     const pct = Math.round(best.safety * 100)
     const worst = scored[scored.length - 1]
@@ -230,6 +238,7 @@ app.post('/api/route', async (req, res) => {
       safetyScore: pct,
       duration: Math.round(best.duration / 60),
       streets,
+      stepGeometries,
       receipt: receiptLines,
       dangerRoute,
     })

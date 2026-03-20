@@ -20,6 +20,16 @@ function RaccoonSVG() {
       {/* Belly */}
       <ellipse cx="78" cy="182" rx="22" ry="28" fill="#d8cfc0"/>
 
+      {/* === SCARF / COLLAR (professional touch) === */}
+      <ellipse cx="78" cy="148" rx="26" ry="9" fill="#1f6feb"/>
+      <ellipse cx="78" cy="148" rx="26" ry="6" fill="#388bfd"/>
+      {/* Scarf knot */}
+      <ellipse cx="78" cy="148" rx="8" ry="7" fill="#1f6feb"/>
+      <ellipse cx="78" cy="147" rx="6" ry="5" fill="#60a5fa"/>
+      {/* Scarf tails */}
+      <path d="M72 153 Q68 162 65 170" stroke="#1f6feb" strokeWidth="5" strokeLinecap="round" fill="none"/>
+      <path d="M84 153 Q87 160 85 168" stroke="#388bfd" strokeWidth="4" strokeLinecap="round" fill="none"/>
+
       {/* === ARMS === */}
       {/* Left arm */}
       <ellipse cx="42" cy="168" rx="12" ry="22" fill="#b0a090" transform="rotate(15 42 168)"/>
@@ -49,6 +59,10 @@ function RaccoonSVG() {
       <ellipse cx="44" cy="116" rx="12" ry="9" fill="#d8cfc0"/>
       <ellipse cx="112" cy="116" rx="12" ry="9" fill="#d8cfc0"/>
 
+      {/* Rosy cheeks */}
+      <ellipse cx="48" cy="118" rx="7" ry="5" fill="#e8a0b0" opacity="0.35"/>
+      <ellipse cx="108" cy="118" rx="7" ry="5" fill="#e8a0b0" opacity="0.35"/>
+
       {/* Eye mask */}
       <ellipse cx="62" cy="104" rx="16" ry="13" fill="#2a2a2a"/>
       <ellipse cx="94" cy="104" rx="16" ry="13" fill="#2a2a2a"/>
@@ -62,6 +76,9 @@ function RaccoonSVG() {
       {/* Eye shine */}
       <circle cx="65.5" cy="100.5" r="2.5" fill="white"/>
       <circle cx="97.5" cy="100.5" r="2.5" fill="white"/>
+      {/* Extra small shine sparkle */}
+      <circle cx="60" cy="106" r="1.2" fill="white" opacity="0.6"/>
+      <circle cx="92" cy="106" r="1.2" fill="white" opacity="0.6"/>
 
       {/* Blink overlay — animated */}
       <ellipse cx="62" cy="103" r="9" fill="#c8b89a" className="blink-left"/>
@@ -72,8 +89,11 @@ function RaccoonSVG() {
       {/* Nose shine */}
       <ellipse cx="76" cy="114" rx="2.5" ry="1.5" fill="#e8a0b0" opacity="0.7"/>
 
-      {/* Mouth */}
-      <path d="M70 122 Q78 130 86 122" stroke="#a05060" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
+      {/* Mouth — cute smile */}
+      <path d="M71 122 Q78 131 85 122" stroke="#a05060" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
+      {/* Smile dimples */}
+      <circle cx="70" cy="122" r="1.5" fill="#c07080" opacity="0.5"/>
+      <circle cx="86" cy="122" r="1.5" fill="#c07080" opacity="0.5"/>
 
       {/* Forehead stripe */}
       <ellipse cx="78" cy="80" rx="6" ry="10" fill="#a89880" opacity="0.45"/>
@@ -83,6 +103,11 @@ function RaccoonSVG() {
       <line x1="30" y1="120" x2="56" y2="120" stroke="#888" strokeWidth="1" opacity="0.6"/>
       <line x1="100" y1="118" x2="126" y2="114" stroke="#888" strokeWidth="1" opacity="0.6"/>
       <line x1="100" y1="120" x2="126" y2="120" stroke="#888" strokeWidth="1" opacity="0.6"/>
+
+      {/* === BADGE (shield icon on chest) === */}
+      <path d="M72 175 Q78 172 84 175 L84 183 Q78 187 72 183 Z" fill="#1f6feb" opacity="0.9"/>
+      <path d="M74 177 Q78 175 82 177 L82 182 Q78 185 74 182 Z" fill="#60a5fa" opacity="0.7"/>
+      <text x="78" y="182" textAnchor="middle" fontSize="5" fill="white" fontWeight="bold">SR</text>
     </svg>
   )
 }
@@ -289,17 +314,19 @@ export default function App() {
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
-      setRoute({ geometry: data.geometry, pins: { start, dest }, safetyScore: data.safetyScore, duration: data.duration, receipt: data.receipt, dangerRoute: data.dangerRoute, streets: data.streets })
+      setRoute({ geometry: data.geometry, pins: { start, dest }, safetyScore: data.safetyScore, duration: data.duration, receipt: data.receipt, dangerRoute: data.dangerRoute, streets: data.streets, stepGeometries: data.stepGeometries })
 
       // Fetch street vibes for walking routes
       if (mode === 'walking' && data.streets?.length) {
         fetch('http://localhost:3001/api/street-vibe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ streets: data.streets.slice(0, 5) }),
+          body: JSON.stringify({ streets: data.streets }),
         })
           .then(r => r.json())
-          .then(v => setRoute(r => r ? { ...r, vibes: v.vibes } : r))
+          .then(v => {
+            setRoute(r => r ? { ...r, vibes: v.vibes, stepGeometries: data.stepGeometries } : r)
+          })
           .catch(() => {})
       }
     } catch (e) {
@@ -355,6 +382,17 @@ export default function App() {
           <div className="legend-title">Safety Index</div>
           <div className="legend-bar"/>
           <div className="legend-labels"><span>High Risk</span><span>Safe</span></div>
+          {route?.vibes?.length > 0 && (
+            <div className="vibe-legend">
+              <div className="legend-title" style={{marginTop:10}}>Street Activity</div>
+              {[['#22c55e','Busy'],['#eab308','Moderate'],['#ef4444','Quiet'],['#60a5fa','Calm']].map(([c,l]) => (
+                <div key={l} className="vibe-legend-row">
+                  <span className="vibe-legend-dot" style={{background:c}}/>
+                  <span>{l}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

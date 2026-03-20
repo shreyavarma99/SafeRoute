@@ -1,0 +1,6 @@
+{
+  "chat.contextFiles": [
+    ".kiro/steering/project.md",
+    ".kiro/steering/backend.md"
+  ]
+}
