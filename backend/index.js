@@ -1,3 +1,4 @@
+require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 const fetch = require('node-fetch')
@@ -78,15 +79,86 @@ function buildZones(crimes) {
 let cache = null
 let cacheTime = 0
 
+async function getZones() {
+  if (cache && Date.now() - cacheTime < 10 * 60 * 1000) return cache
+  const crimes = await fetchCrimeData()
+  cache = buildZones(crimes)
+  cacheTime = Date.now()
+  return cache
+}
+
+// Score a route's coords against safety grid (higher = safer)
+function scoreRoute(coords, zones) {
+  const grid = {}
+  for (const f of zones.features) {
+    const [minLng, minLat] = f.geometry.coordinates[0][0]
+    const key = `${Math.floor(minLat / GRID_SIZE)},${Math.floor(minLng / GRID_SIZE)}`
+    grid[key] = f.properties.safety
+  }
+  let total = 0
+  for (const [lng, lat] of coords) {
+    const key = `${Math.floor(lat / GRID_SIZE)},${Math.floor(lng / GRID_SIZE)}`
+    total += grid[key] ?? 1
+  }
+  return total / coords.length
+}
+
 app.get('/api/zones', async (req, res) => {
   try {
-    if (cache && Date.now() - cacheTime < 10 * 60 * 1000) {
-      return res.json(cache)
-    }
-    const crimes = await fetchCrimeData()
-    cache = buildZones(crimes)
-    cacheTime = Date.now()
-    res.json(cache)
+    res.json(await getZones())
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// POST /api/route  body: { origin: [lng,lat], destination: string }
+app.use(express.json())
+app.post('/api/route', async (req, res) => {
+  try {
+    const { origin, destination, mode = 'walking' } = req.body
+    const profile = mode === 'driving' ? 'mapbox/driving' : 'mapbox/walking'
+    const token = process.env.MAPBOX_TOKEN
+    if (!token) return res.status(500).json({ error: 'MAPBOX_TOKEN not set' })
+
+    // Geocode destination
+    const geoRes = await fetch(
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(destination)}.json` +
+      `?proximity=${origin[0]},${origin[1]}&limit=1&access_token=${token}`
+    )
+    const geoData = await geoRes.json()
+    const destCoord = geoData.features?.[0]?.center
+    if (!destCoord) return res.status(400).json({ error: 'Destination not found' })
+
+    // Fetch up to 3 alternative routes
+    const dirRes = await fetch(
+      `https://api.mapbox.com/directions/v5/${profile}/` +
+      `${origin[0]},${origin[1]};${destCoord[0]},${destCoord[1]}` +
+      `?alternatives=true&geometries=geojson&overview=full&access_token=${token}`
+    )
+    const dirData = await dirRes.json()
+    const routes = dirData.routes
+    if (!routes?.length) return res.status(400).json({ error: 'No routes found' })
+
+    const zones = await getZones()
+
+    // Pick the safest route
+    const scored = routes.map(r => ({
+      geometry: r.geometry,
+      duration: r.duration,
+      distance: r.distance,
+      safety: scoreRoute(r.geometry.coordinates, zones),
+    }))
+    scored.sort((a, b) => b.safety - a.safety)
+    const best = scored[0]
+
+    res.json({
+      geometry: best.geometry,
+      destination: geoData.features[0].place_name,
+      destCoord,
+      safetyScore: Math.round(best.safety * 100),
+      duration: Math.round(best.duration / 60),
+    })
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: err.message })

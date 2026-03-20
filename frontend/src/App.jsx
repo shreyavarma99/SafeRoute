@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Map from './Map'
 import './App.css'
 
@@ -87,21 +87,148 @@ function RaccoonSVG() {
   )
 }
 
+function RouteTracker({ pins, pinNames, route, loading, mode }) {
+  const hasStart = !!pins.start
+  const hasDest  = !!pins.dest
+  const done     = hasStart && hasDest && !loading && route
+
+  return (
+    <div className="route-tracker">
+      {/* Windy path SVG */}
+      <svg className="route-path-svg" viewBox="0 0 60 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+        {/* dashed grey track */}
+        <path d="M30 18 C55 40 5 70 30 100 C55 130 30 148 30 148"
+          stroke="#2a3444" strokeWidth="3" strokeLinecap="round" strokeDasharray="5 4"/>
+        {/* animated fill when route found */}
+        {done && (
+          <path d="M30 18 C55 40 5 70 30 100 C55 130 30 148 30 148"
+            stroke="#60a5fa" strokeWidth="3" strokeLinecap="round"
+            className="route-path-fill"/>
+        )}
+        {/* start dot */}
+        <circle cx="30" cy="18" r="7" fill={hasStart ? '#22c55e' : '#1c2333'} stroke={hasStart ? '#22c55e' : '#2a3444'} strokeWidth="2"/>
+        {hasStart && <path d="M26 18 l3 3 l5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>}
+        {/* dest dot */}
+        <circle cx="30" cy="148" r="7" fill={hasDest ? '#60a5fa' : '#1c2333'} stroke={hasDest ? '#60a5fa' : '#2a3444'} strokeWidth="2"/>
+        {hasDest && <path d="M26 148 l3 3 l5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>}
+      </svg>
+
+      {/* Labels */}
+      <div className="route-labels">
+        <div className={`route-label ${hasStart ? 'set' : ''}`}>
+          <span className="label-title">Start</span>
+          <span className="label-name">{hasStart ? pinNames.start.split(',')[0] : 'Not set'}</span>
+        </div>
+        <div className="route-label-spacer"/>
+        <div className={`route-label ${hasDest ? 'set' : ''}`}>
+          <span className="label-title">Destination</span>
+          <span className="label-name">{hasDest ? pinNames.dest.split(',')[0] : 'Not set'}</span>
+        </div>
+        {loading && <div className="route-finding">Finding safest route…</div>}
+        {done && (
+          <div className="route-result">
+            <span>🛡️ {route.safetyScore}% safe</span>
+            <span>⏱ ~{route.duration} min {mode === 'walking' ? 'walk' : 'drive'}</span>
+          </div>
+        )}
+        {!hasStart && !hasDest && (
+          <p className="route-hint">Search a location and set your start &amp; destination</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const [open, setOpen] = useState(false)
+  const [searchInput, setSearchInput] = useState('')
+  const [suggestions, setSuggestions] = useState([])
+  const [pins, setPins] = useState({ start: null, dest: null })
+  const [pinNames, setPinNames] = useState({ start: '', dest: '' })
+  const [route, setRoute] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [mode, setMode] = useState('walking')
+  const mapRef = useRef(null)
+  const debounceRef = useRef(null)
+
+  // Autocomplete via Mapbox Geocoding
+  function onSearchChange(e) {
+    const val = e.target.value
+    setSearchInput(val)
+    clearTimeout(debounceRef.current)
+    if (!val.trim()) { setSuggestions([]); return }
+    debounceRef.current = setTimeout(async () => {
+      const token = import.meta.env.VITE_MAPBOX_TOKEN
+      const res = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(val)}.json?limit=5&access_token=${token}`
+      )
+      const data = await res.json()
+      setSuggestions(data.features ?? [])
+    }, 300)
+  }
+
+  function selectSuggestion(feature) {
+    setSearchInput(feature.place_name)
+    setSuggestions([])
+    mapRef.current?.flyTo(feature.center, feature.place_name)
+  }
+
+  function handlePinAction(type, coord, name) {
+    setPins(p => ({ ...p, [type]: coord }))
+    setPinNames(p => ({ ...p, [type]: name }))
+  }
+
+  // Auto-route when both pins are set
+  useEffect(() => {
+    if (!pins.start || !pins.dest) return
+    setLoading(true)
+    fetch('http://localhost:3001/api/route', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ origin: pins.start, destination: pinNames.dest, mode }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) throw new Error(data.error)
+        setRoute({ geometry: data.geometry, pins, safetyScore: data.safetyScore, duration: data.duration })
+        setOpen(true)
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }, [pins, mode])
 
   return (
     <div className="app-wrapper">
       <div className="map-frame">
         <div className="map-title">⬡ SafeRoute</div>
-        <Map />
+
+        {/* Autocomplete search */}
+        <div className="map-search">
+          <div className="search-wrap">
+            <input
+              type="text"
+              placeholder="Search a location…"
+              className="map-search-input"
+              value={searchInput}
+              onChange={onSearchChange}
+              onKeyDown={e => e.key === 'Escape' && setSuggestions([])}
+            />
+            {suggestions.length > 0 && (
+              <ul className="suggestions">
+                {suggestions.map(f => (
+                  <li key={f.id} onClick={() => selectSuggestion(f)}>{f.place_name}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        <Map ref={mapRef} route={route} onPinAction={handlePinAction} />
+
         <div className="map-legend">
           <div className="legend-title">Safety Index</div>
           <div className="legend-bar"/>
-          <div className="legend-labels">
-            <span>High Risk</span>
-            <span>Safe</span>
-          </div>
+          <div className="legend-labels"><span>High Risk</span><span>Safe</span></div>
         </div>
       </div>
 
@@ -115,19 +242,19 @@ export default function App() {
               </div>
               <button className="chat-close" onClick={() => setOpen(false)}>✕</button>
             </div>
-            <div className="chat-messages">
-              <div className="message bot">
-                <p>Hey! I'm Rocky 🦝 — your safe route guide. Where are you headed?</p>
-              </div>
+
+            <div className="mode-toggle">
+              <button className={`mode-btn ${mode === 'walking' ? 'active' : ''}`} onClick={() => setMode('walking')}>🚶 Walking</button>
+              <button className={`mode-btn ${mode === 'driving' ? 'active' : ''}`} onClick={() => setMode('driving')}>🚗 Driving</button>
             </div>
-            <div className="chat-input-row">
-              <input type="text" placeholder="Enter a destination..." className="chat-input" />
-              <button className="chat-send">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="22" y1="2" x2="11" y2="13"/>
-                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                </svg>
-              </button>
+
+            <div className="chat-messages">
+              <RouteTracker pins={pins} pinNames={pinNames} route={route} loading={loading} mode={mode} />
+              {pins.start && pins.dest && (
+                <button className="clear-btn" onClick={() => { setPins({ start: null, dest: null }); setRoute(null) }}>
+                  Clear route
+                </button>
+              )}
             </div>
           </div>
         )}
