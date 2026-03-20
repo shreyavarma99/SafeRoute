@@ -121,7 +121,7 @@ SafeRoute currently runs on NYC data — NYPD complaints and 311 requests are so
 The architecture is city-agnostic. As SafeRoute scales, the plan is to plug in equivalent open data sources from cities across the US and eventually globally — bringing the same real-time safety layer to every major city. The grid-based scoring system, routing engine, and UI work the same regardless of the data source underneath.
 
 ---
-<img width="1336" height="1060" alt="image" src="https://github.com/user-attachments/assets/c433475f-ce05-46fb-8f59-bf4e619f50ec" />
+<img width="133" height="49" alt="image" src="https://github.com/user-attachments/assets/6527dd00-2ec8-43b0-ba83-72ad0d7203c1" />
 
 
 ## How It All Fits Together
