@@ -87,33 +87,29 @@ function RaccoonSVG() {
   )
 }
 
-function RouteTracker({ pins, pinNames, route, loading, mode }) {
+function RouteTracker({ pins, pinNames, route, loading, mode, onSubmit, error }) {
   const hasStart = !!pins.start
   const hasDest  = !!pins.dest
   const done     = hasStart && hasDest && !loading && route
+  const ready    = hasStart && hasDest && !loading && !route
 
   return (
     <div className="route-tracker">
       {/* Windy path SVG */}
       <svg className="route-path-svg" viewBox="0 0 60 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-        {/* dashed grey track */}
         <path d="M30 18 C55 40 5 70 30 100 C55 130 30 148 30 148"
           stroke="#2a3444" strokeWidth="3" strokeLinecap="round" strokeDasharray="5 4"/>
-        {/* animated fill when route found */}
         {done && (
           <path d="M30 18 C55 40 5 70 30 100 C55 130 30 148 30 148"
             stroke="#60a5fa" strokeWidth="3" strokeLinecap="round"
             className="route-path-fill"/>
         )}
-        {/* start dot */}
         <circle cx="30" cy="18" r="7" fill={hasStart ? '#22c55e' : '#1c2333'} stroke={hasStart ? '#22c55e' : '#2a3444'} strokeWidth="2"/>
         {hasStart && <path d="M26 18 l3 3 l5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>}
-        {/* dest dot */}
         <circle cx="30" cy="148" r="7" fill={hasDest ? '#60a5fa' : '#1c2333'} stroke={hasDest ? '#60a5fa' : '#2a3444'} strokeWidth="2"/>
         {hasDest && <path d="M26 148 l3 3 l5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>}
       </svg>
 
-      {/* Labels */}
       <div className="route-labels">
         <div className={`route-label ${hasStart ? 'set' : ''}`}>
           <span className="label-title">Start</span>
@@ -124,15 +120,21 @@ function RouteTracker({ pins, pinNames, route, loading, mode }) {
           <span className="label-title">Destination</span>
           <span className="label-name">{hasDest ? pinNames.dest.split(',')[0] : 'Not set'}</span>
         </div>
+        {!hasStart && !hasDest && (
+          <p className="route-hint">Search a location and set your start &amp; destination</p>
+        )}
+        {ready && (
+          <button className="submit-route-btn" onClick={onSubmit}>
+            🗺️ Find Safest Route
+          </button>
+        )}
         {loading && <div className="route-finding">Finding safest route…</div>}
+        {error && <div className="route-error">⚠️ {error}</div>}
         {done && (
           <div className="route-result">
             <span>🛡️ {route.safetyScore}% safe</span>
             <span>⏱ ~{route.duration} min {mode === 'walking' ? 'walk' : 'drive'}</span>
           </div>
-        )}
-        {!hasStart && !hasDest && (
-          <p className="route-hint">Search a location and set your start &amp; destination</p>
         )}
       </div>
     </div>
@@ -178,24 +180,27 @@ export default function App() {
     setPinNames(p => ({ ...p, [type]: name }))
   }
 
-  // Auto-route when both pins are set
-  useEffect(() => {
-    if (!pins.start || !pins.dest) return
+  const [routeError, setRouteError] = useState(null)
+
+  async function submitRoute() {
+    if (!pins.start || !pins.dest || loading) return
     setLoading(true)
-    fetch('http://localhost:3001/api/route', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ origin: pins.start, destination: pinNames.dest, mode }),
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) throw new Error(data.error)
-        setRoute({ geometry: data.geometry, pins, safetyScore: data.safetyScore, duration: data.duration })
-        setOpen(true)
+    setRouteError(null)
+    try {
+      const res = await fetch('http://localhost:3001/api/route', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ origin: pins.start, destination: pinNames.dest, mode }),
       })
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [pins, mode])
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      setRoute({ geometry: data.geometry, pins, safetyScore: data.safetyScore, duration: data.duration })
+    } catch (e) {
+      setRouteError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="app-wrapper">
@@ -249,7 +254,7 @@ export default function App() {
             </div>
 
             <div className="chat-messages">
-              <RouteTracker pins={pins} pinNames={pinNames} route={route} loading={loading} mode={mode} />
+              <RouteTracker pins={pins} pinNames={pinNames} route={route} loading={loading} mode={mode} onSubmit={submitRoute} error={routeError} />
               {pins.start && pins.dest && (
                 <button className="clear-btn" onClick={() => { setPins({ start: null, dest: null }); setRoute(null) }}>
                   Clear route
