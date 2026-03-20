@@ -1,216 +1,157 @@
-# SafeRoute 🦝
-
-SafeRoute is a real-time pedestrian and driving safety navigation app for New York City. It overlays live crime and incident data on an interactive map, calculates the safest route between two points, and gives you a street-level activity report before you go.
+# 🦝 SafeRoute
+### *Find the safest way, not just the fastest*
 
 ---
 
-## Tech Stack
+As someone who's lived in cities her whole life, I know how exciting urban life can be — but also how unpredictable. I've heard too many stories of friends getting mugged, followed, or ending up in a sketchy area simply because their maps app told them it was the fastest route. Navigation apps are great at getting you there quickly. None of them tell you whether you should be walking that route at 11pm.
 
-| Layer | Technology |
+SafeRoute is built to change that.
+
+---
+
+## Features
+
+### 🔥 Safety Heatmap
+The map is covered by a live color-coded grid showing how safe each city block is right now. Blocks range from **green** (safe) to **red** (dangerous), refreshed every 5 minutes. Dangerous zones pulse red. Hover any block to see its safety score and how many incidents were reported there in the last 7 days.
+
+### 🔍 Search & Autocomplete
+Type any NYC address or landmark to set your start and destination. Results are biased toward your current map view so you get relevant suggestions fast.
+
+### 🗺️ Safest Route
+SafeRoute doesn't just find the fastest path — it finds the *safest* one. It fetches multiple route options, scores each one against live crime data, and picks the winner. You see:
+- 🔵 **Safe route** — the best path based on safety
+- 🔴 **Risky route** (dashed) — so you can see what you're avoiding
+- A receipt showing the streets used, safety score, travel time, and distance
+
+If a risky route exists, SafeRoute flags it too — telling you exactly which streets to avoid, how many incidents were recorded along that path in the last 7 days, and its safety score. You're not just told where to go; you're told what you're staying away from and why.
+
+### 📍 Live Incident Reports
+The 500 most recent reported incidents are shown as pulsing dots on the map. Tap any dot to see the complaint type, address, time reported, and current status.
+
+Incidents shown include:
+
+| Category | Examples |
 |---|---|
-| Frontend | React 19, Vite, Mapbox GL JS |
-| Backend | Node.js, Express |
-| Map | Mapbox (tiles, geocoding, directions) |
-| Data | NYC Open Data (Socrata API) |
+| 🔊 Noise | Noise - Street/Sidewalk, Noise - Vehicle, Noise - Commercial |
+| 🚗 Traffic & Parking | Blocked driveway, illegal parking |
+| 🏚️ Building & Housing | Housing violations, structural complaints |
+| 🗑️ Sanitation | Dirty conditions, street condition issues |
+| 🚨 Criminal Activity | Assault, robbery, drug activity |
+| 🆘 Distress & Safety | Distress calls, suspicious persons |
+| 🚸 Alerts | Amber alerts, missing persons |
+| 🔥 Hazards | Fire hazards, dangerous conditions |
+
+### 🌆 Street Activity Vibes *(walking only)*
+Before you head out, SafeRoute checks how active each street on your route has been in the **last 6 hours**. Each segment gets a vibe:
+
+| Vibe | Meaning |
+|---|---|
+| 🟢 Busy | Lots of activity — people around |
+| 🟡 Moderate | Some activity |
+| 🔴 Quiet | Unusually quiet for this hour — stay alert |
+| 🔵 Calm | Low activity, but normal for daytime |
+
+### 🤔 "Should I Go Right Now?"
+SafeRoute combines your route's safety score with the current time of day to give you a plain-English recommendation — from ✅ *Go for it* to 🔴 *Avoid if possible*.
+
+### 🦝 Rocky the Raccoon
+Your in-app guide. Rocky walks you through the app, explains your route in plain English, and answers your safety questions as you plan your trip.
+
+---
+
+## Where the Data Comes From
+
+SafeRoute uses two public NYC datasets, refreshed every 5 minutes:
+
+| Dataset | What it contains | Used for |
+|---|---|---|
+| **NYPD Complaint Data** | All reported crimes in NYC, categorized by severity | Building the safety heatmap and scoring routes |
+| **NYC 311 Service Requests** | Noise complaints, illegal parking, sanitation issues, etc. | Safety heatmap, live incident markers, street vibes |
+
+Both datasets are pulled from [NYC Open Data](https://opendata.cityofnewyork.us/) and cover the **last 7 days**.
+
+Routing and maps are powered by **Mapbox**.
+
+---
+
+## How the Safety Score Works
+
+### Safety Score (per grid cell)
+
+1. NYC is divided into `0.001°` cells (~100m × 100m, roughly one city block)
+2. Every NYPD complaint and 311 call from the last 7 days is dropped into its cell
+3. Each incident adds to that cell's score, weighted by severity:
+   - Felony = 3, Misdemeanor = 2, Violation / 311 = 1
+4. All cell scores are normalized by dividing by the highest score in the city — so the worst block in NYC = 1.0
+5. `safety = 1 - normalized_score` — so **1.0 = safest, 0.0 = most dangerous**
+
+### Best Route Selection
+
+1. Mapbox Directions returns up to 3 alternative routes (walking or driving)
+2. For each route, every coordinate along the path is mapped to its grid cell and that cell's safety score is read
+3. All those scores are averaged → one safety score (0–1) for the whole route
+4. Routes are sorted by that score, highest first — the top one is your **safe route**, the bottom one becomes the **risky route** shown in red
+5. The score shown in the app is `Math.round(best.safety * 100)%`
+
+**What does the % actually mean?**
+A route scoring **85%** means the average city block it passes through is 85% of the way from the most dangerous block in NYC to a completely incident-free block. It's not absolute — it's relative to the rest of the city right now.
 
 ---
 
 ## Getting Started
 
-### Prerequisites
-- Node.js 18+
-- A free [Mapbox account](https://account.mapbox.com) — grab a public token
-
-### Setup
+You'll need Node.js 18+ and a free [Mapbox account](https://account.mapbox.com).
 
 ```bash
 # Backend
-cd backend
-cp .env.example .env        # add your MAPBOX_TOKEN
-npm install
-node index.js               # runs on http://localhost:3001
+cd backend && cp .env.example .env   # add your MAPBOX_TOKEN
+npm install && node index.js         # runs on localhost:3001
 
-# Frontend (separate terminal)
-cd frontend
-cp .env.example .env        # add your VITE_MAPBOX_TOKEN
-npm install
-npm run dev                 # runs on http://localhost:5173
+# Frontend (new terminal)
+cd frontend && cp .env.example .env  # add your VITE_MAPBOX_TOKEN
+npm install && npm run dev           # runs on localhost:5173
 ```
 
 ---
 
-## How It Works
+## Scaling
 
-### 1. Safety Zone Heatmap
+SafeRoute currently runs on NYC data — NYPD complaints and 311 requests are some of the richest open public safety datasets in the world, which made NYC the right place to start.
 
-**Data source:** [NYPD Complaint Data (YTD)](https://data.cityofnewyork.us/resource/5uac-w243.json) + [NYC 311 Service Requests](https://data.cityofnewyork.us/resource/erm2-nwe9.json)
-
-**What it fetches:** Up to 25,000 NYPD complaints and 25,000 311 calls from the **last 7 days**, refreshed every 5 minutes.
-
-**How the grid is built:**
-1. Each incident is mapped to a `0.001°` grid cell (~100m × 100m, roughly one city block)
-2. Crimes are weighted by severity: Felony = 3, Misdemeanor = 2, Violation = 1. 311 calls = 1
-3. Each cell gets a raw danger score (sum of weighted incidents)
-4. Scores are normalized 0–1 across all cells
-5. Safety = `1 - normalized_danger` (1 = safest, 0 = most dangerous)
-
-**On the map:**
-- Cells are rendered as filled polygons colored green → yellow → orange → red
-- Opacity scales with danger (unsafe zones are more opaque, safe zones nearly transparent)
-- A heatmap blur layer sits on top to smooth cell edges
-- Dangerous cells (safety < 0.35) pulse with a red animation
-- **Hover over any area** with your mouse to see a tooltip showing the safety score % and incident count for that block over the last 7 days
-- Dangerous cells (safety < 0.35) pulse with a red animation
-- Hovering a cell shows: safety score %, incident count (last 7 days)
+The architecture is city-agnostic. As SafeRoute scales, the plan is to plug in equivalent open data sources from cities across the US and eventually globally — bringing the same real-time safety layer to every major city. The grid-based scoring system, routing engine, and UI work the same regardless of the data source underneath.
 
 ---
 
-### 2. Route Search & Autocomplete
+## How It All Fits Together
 
-**Data source:** [Mapbox Geocoding API](https://docs.mapbox.com/api/search/geocoding/)
-
-Typing in the search bar fires a debounced request to Mapbox's geocoding endpoint. Results are proximity-biased to the current map center. Clicking a suggestion flies the map to that location and shows a popup with two buttons: **Set as Start** or **Set as Destination**.
-
----
-
-### 3. Safest Route Calculation
-
-**Data source:** [Mapbox Directions API](https://docs.mapbox.com/api/navigation/directions/)
-
-**How it works:**
-
-SafeRoute doesn't just find the fastest path — it finds the *safest* one by scoring every possible route against real crime and incident data.
-
-1. **Get route candidates** — Mapbox Directions is called with `alternatives=true`, returning up to 3 different route options (walking or driving) between your start and destination.
-2. **Score each route against the safety grid** — For every coordinate point along a route, the app looks up which ~100m grid cell that point falls in and reads its safety score (built from NYPD complaints + 311 data). All those cell scores are averaged together to produce a single safety score (0–100%) for the whole route.
-3. **Pick the winner** — Routes are ranked by safety score, highest first. The top-scoring route is your safe route (shown as a blue line). The lowest-scoring route is flagged as the risky route (shown as a dashed red line) so you can see what you're avoiding.
-4. **Show the tradeoff** — The receipt tells you which streets the safe route uses, how many riskier alternatives were avoided, and how many incidents were recorded along the danger route in the last 7 days.
-
-In short: the app uses Mapbox to generate realistic navigation paths, then overlays its own crime/incident data to pick whichever path passes through the safest blocks.
-
-**What's returned:**
-- Safe route geometry (blue line on map)
-- Risky route geometry (dashed red line on map)
-- Safety score (0–100%)
-- Estimated duration and distance
-- Street names and turn-by-turn step geometries
-- A plain-English receipt: route via X → Y → Z, safety label, avoided routes
-- Risky route warning: streets taken, total incidents, safety score
-
----
-
-### 4. Route Receipt & Map Popups
-
-After routing, two draggable Mapbox popups appear anchored to the midpoints of each route line:
-
-- **Blue popup (safe route):** Street path, safety score with plain-English label, how many riskier routes were avoided, walk/drive time and distance
-- **Red popup (risky route):** Streets taken, total incidents recorded in those cells in the last 7 days, safety score warning
-
----
-
-### 5. Live Incident Reports
-
-**Data source:** [NYC 311 Service Requests](https://data.cityofnewyork.us/resource/erm2-nwe9.json)
-
-Fetches up to 500 incidents from the **last 7 days** with coordinates, ordered by most recent. Each incident is rendered as a small orange pulsing circle on the map.
-
-**Types of incidents reported include:**
-- 🔊 Noise complaints (street/sidewalk, vehicles, commercial establishments)
-- 🚗 Blocked driveways and illegal parking
-- 🏚️ Building/housing violations
-- 🗑️ Sanitation and street condition issues
-- 🚨 Any other active 311 service requests with a recorded location
-
-Clicking a marker shows:
-- Complaint type and specific descriptor
-- Address
-- Time reported
-- Status (Open / In Progress / Closed), color-coded
-
----
-
-### 6. Street Activity Vibes (Walking Only)
-
-**Data source:** [NYC 311 Service Requests](https://data.cityofnewyork.us/resource/erm2-nwe9.json)
-
-After a walking route is calculated, the backend fetches noise and activity complaints (Noise - Street/Sidewalk, Noise - Vehicle, Noise - Commercial, Blocked Driveway, Illegal Parking) from the **last 6 hours** and counts how many match each street on your route.
-
-**Vibe classification:**
-| Count | Time | Vibe | Meaning |
-|---|---|---|---|
-| ≥ 5 reports | any | 🟢 Busy | Lots of activity, people around |
-| ≥ 2 reports | any | 🟡 Moderate | Some activity |
-| 0–1 reports | late night (11pm–5am) | 🔴 Quiet | Unusually quiet, stay alert |
-| 0–1 reports | night (8pm–7am) | 🔴 Quiet | Quiet for the hour |
-| 0–1 reports | daytime | 🔵 Calm | Normal for this time |
-
-Each street segment is colored on the map using the exact step geometry from the directions API (not name-matching). A legend appears in the bottom-right corner when vibes are active.
-
----
-
-### 7. "Should I Go Right Now?" Assessment
-
-Rocky evaluates your route's safety score combined with the current time of day:
-
-| Safety Score | Time | Verdict |
-|---|---|---|
-| ≥ 80% | Daytime | ✅ Go for it |
-| ≥ 80% | Late night | 🟡 Safe route but stay aware |
-| 60–79% | Daytime | 🟡 Mostly fine, stay alert |
-| 60–79% | Night | 🟠 Be cautious |
-| 40–59% | Any | 🟠 Think twice |
-| < 40% | Any | 🔴 Avoid if possible |
-
----
-
-### 8. Rocky the Raccoon (Chat UI)
-
-Rocky is the chat assistant that guides you through the app. He:
-- Explains how to use the search bar and set pins on first open
-- Updates in real time as you set your start and destination (horizontal path tracker with checkmarks)
-- Shows the route receipt with street names and safety breakdown
-- Shows per-street activity vibes
-- Answers "Should I go right now?" with a time-aware safety assessment
-- Supports walking / driving mode toggle (changes the Mapbox directions profile)
-
----
-
-## Data Sources
-
-| Dataset | Provider | Endpoint | Used For |
-|---|---|---|---|
-| NYPD Complaint Data YTD | NYC Open Data | `5uac-w243` | Safety grid (crime severity) |
-| 311 Service Requests | NYC Open Data | `erm2-nwe9` | Safety grid, incident markers, street vibes |
-| Geocoding | Mapbox | `/geocoding/v5/mapbox.places` | Search autocomplete, destination lookup |
-| Directions | Mapbox | `/directions/v5/mapbox/{profile}` | Route alternatives + step geometries |
-
----
-
-## Environment Variables
-
-### `frontend/.env`
 ```
-VITE_MAPBOX_TOKEN=pk.your_token_here
-```
-
-### `backend/.env`
-```
-MAPBOX_TOKEN=pk.your_token_here
+  NYC Open Data (NYPD + 311)
+            │
+            │  refreshes every 5 min
+            ▼
+  ┌─────────────────────────┐
+  │   Safety Grid Builder   │
+  │  ~100m × 100m cells     │
+  │  weighted danger scores │
+  │  normalized 0 → 1       │
+  └────────────┬────────────┘
+               │
+               ▼
+  ┌─────────────────────────┐
+  │     Routing Engine      │◀─── Mapbox Directions API
+  │  fetches 3 route options│     (route candidates)
+  │  scores each route      │
+  │  picks the safest one   │
+  └────────────┬────────────┘
+               │
+               ▼
+  ┌─────────────────────────┐
+  │    Rocky's Assessment   │
+  │  safety score + time    │
+  │  → should you go now?   │
+  └─────────────────────────┘
 ```
 
 ---
 
-## Project Structure
-
-```
-kiro/
-├── frontend/
-│   ├── src/
-│   │   ├── App.jsx        # Main UI, chat, route state, DraggableCard, GoNowButton, RouteTracker
-│   │   ├── App.css        # All styles
-│   │   └── Map.jsx        # Mapbox map, layers, markers, popups, vibe coloring
-│   └── .env
-└── backend/
-    ├── index.js           # Express API: /api/zones, /api/route, /api/incidents, /api/street-vibe
-    └── .env
-```
+*Built because getting there safely matters more than getting there fast.*
