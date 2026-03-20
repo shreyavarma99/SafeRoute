@@ -87,6 +87,48 @@ function RaccoonSVG() {
   )
 }
 
+function GoNowButton({ safetyScore }) {
+  const [advice, setAdvice] = useState(null)
+
+  function assess() {
+    const hour = new Date().getHours()
+    const isNight = hour >= 22 || hour < 6
+    const isEvening = hour >= 18 && hour < 22
+
+    let msg, emoji
+    if (safetyScore >= 80 && !isNight) {
+      emoji = '🟢'; msg = "Yeah, go for it! This route looks really safe right now. Have a great trip! 🚀"
+    } else if (safetyScore >= 80 && isNight) {
+      emoji = '🟡'; msg = "The route itself is pretty safe, but it's late at night — stay aware of your surroundings and keep your phone handy! 🌙"
+    } else if (safetyScore >= 60 && !isNight) {
+      emoji = '🟡'; msg = "It's mostly fine to go! There's a little risk on this route but nothing too alarming. Stay alert and you'll be good 👍"
+    } else if (safetyScore >= 60 && isNight) {
+      emoji = '🟠'; msg = "I'd be a bit cautious — it's nighttime and this route has some moderate risk. Maybe stick to well-lit streets and stay aware! 🌙"
+    } else if (safetyScore >= 40) {
+      emoji = '🟠'; msg = `Hmm, I'd think twice! This route has a safety score of ${safetyScore}% — there's been some activity in the area. ${isNight ? 'Especially at this hour, ' : ''}consider an alternative or go with someone if you can 🤔`
+    } else {
+      emoji = '🔴'; msg = `I'd really recommend waiting or finding a different route! This area has a safety score of only ${safetyScore}% — that's pretty risky. ${isNight ? 'And it being nighttime makes it worse. ' : ''}Please stay safe! 🙏`
+    }
+
+    setAdvice({ emoji, msg })
+  }
+
+  return (
+    <div className="go-now-wrap">
+      {!advice && (
+        <button className="go-now-btn" onClick={assess}>🤔 Should I go right now?</button>
+      )}
+      {advice && (
+        <div className="go-now-result">
+          <span className="go-now-emoji">{advice.emoji}</span>
+          <p>{advice.msg}</p>
+          <button className="go-now-reset" onClick={() => setAdvice(null)}>Ask again</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function RouteTracker({ pins, pinNames, route, loading, mode, error }) {
   const hasStart = !!pins.start
   const hasDest  = !!pins.dest
@@ -94,48 +136,63 @@ function RouteTracker({ pins, pinNames, route, loading, mode, error }) {
 
   return (
     <div className="route-tracker">
-      {/* Windy path SVG */}
-      <svg className="route-path-svg" viewBox="0 0 60 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M30 18 C55 40 5 70 30 100 C55 130 30 148 30 148"
-          stroke="#2a3444" strokeWidth="3" strokeLinecap="round" strokeDasharray="5 4"/>
-        {done && (
-          <path d="M30 18 C55 40 5 70 30 100 C55 130 30 148 30 148"
-            stroke="#60a5fa" strokeWidth="3" strokeLinecap="round"
-            className="route-path-fill"/>
-        )}
-        <circle cx="30" cy="18" r="7" fill={hasStart ? '#22c55e' : '#1c2333'} stroke={hasStart ? '#22c55e' : '#2a3444'} strokeWidth="2"/>
-        {hasStart && <path d="M26 18 l3 3 l5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>}
-        <circle cx="30" cy="148" r="7" fill={hasDest ? '#60a5fa' : '#1c2333'} stroke={hasDest ? '#60a5fa' : '#2a3444'} strokeWidth="2"/>
-        {hasDest && <path d="M26 148 l3 3 l5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>}
-      </svg>
+      {/* Horizontal path */}
+      <div className="route-path-row">
+        {/* Start node */}
+        <div className="route-node">
+          <div className="node-label top">{hasStart ? pinNames.start.split(',')[0] : 'Start'}</div>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" fill={hasStart ? '#22c55e' : '#1c2333'} stroke={hasStart ? '#22c55e' : '#2a3444'} strokeWidth="2"/>
+            {hasStart && <path d="M8 12 l3 3 l5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>}
+          </svg>
+        </div>
 
-      <div className="route-labels">
-        <div className={`route-label ${hasStart ? 'set' : ''}`}>
-          <span className="label-title">Start</span>
-          <span className="label-name">{hasStart ? pinNames.start.split(',')[0] : 'Not set'}</span>
+        {/* Connecting path */}
+        <div className="route-path-line">
+          <svg width="100%" height="24" viewBox="0 0 200 24" preserveAspectRatio="none" fill="none">
+            <path d="M0 12 C40 4, 80 20, 120 8, 160 16, 200 12 200 12" stroke={done ? '#60a5fa' : '#2a3444'} strokeWidth="2.5" strokeLinecap="round" strokeDasharray={done ? 'none' : '5 4'} className={done ? 'h-path-fill' : ''}/>
+          </svg>
         </div>
-        <div className="route-label-spacer"/>
-        <div className={`route-label ${hasDest ? 'set' : ''}`}>
-          <span className="label-title">Destination</span>
-          <span className="label-name">{hasDest ? pinNames.dest.split(',')[0] : 'Not set'}</span>
+
+        {/* Dest node */}
+        <div className="route-node">
+          <div className="node-label top">{hasDest ? pinNames.dest.split(',')[0] : 'Destination'}</div>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" fill={hasDest ? '#60a5fa' : '#1c2333'} stroke={hasDest ? '#60a5fa' : '#2a3444'} strokeWidth="2"/>
+            {hasDest && <path d="M8 12 l3 3 l5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>}
+          </svg>
         </div>
-        {!hasStart && !hasDest && (
-          <p className="route-hint">Search a location and set your start &amp; destination</p>
-        )}
-        {loading && <div className="route-finding">Finding safest route…</div>}
-        {error && <div className="route-error">⚠️ {error}</div>}
-        {done && (
-          <div className="route-result">
-            <span>🛡️ {route.safetyScore}% safe</span>
-            <span>⏱ ~{route.duration} min {mode === 'walking' ? 'walk' : 'drive'}</span>
-            {route.receipt?.length > 0 && (
-              <div className="route-receipt">
-                {route.receipt.map((line, i) => <div key={i}>{line}</div>)}
-              </div>
-            )}
-          </div>
-        )}
       </div>
+
+      {!hasStart && !hasDest && (
+        <div className="rocky-intro">
+          <p>👋 Hey! I'm <strong>Rocky</strong> and I'm here to find you the safest route around the city! 🦝</p>
+          <p>Here's how it works:</p>
+          <ol>
+            <li>🔍 Use the <strong>search bar</strong> at the top to find a location</li>
+            <li>📍 Click <strong>"Set as Start"</strong> to set your starting point</li>
+            <li>🏁 Search again and click <strong>"Set as Destination"</strong></li>
+            <li>🗺️ I'll instantly find you the <strong>safest route</strong> there!</li>
+          </ol>
+          <p>The map is shaded by safety — 🟢 green means safe, 🔴 red means risky. Let's go! 🚀</p>
+        </div>
+      )}
+      {hasStart && !hasDest && <p className="route-hint">✅ Nice! Start is set. Now search for your <strong>destination</strong>! 🏁</p>}
+      {!hasStart && hasDest && <p className="route-hint">✅ Destination locked in! Now search for your <strong>starting point</strong> 📍</p>}
+      {loading && <div className="route-finding">🔍 Crunching the data, finding your safest path…</div>}
+      {error && <div className="route-error">😬 Oops! {error}</div>}
+      {done && (
+        <div className="route-result">
+          <p style={{marginBottom:6}}>🎉 Found it! Here's your safest route:</p>
+          <span>🛡️ {route.safetyScore}% safe</span>
+          <span>⏱ ~{route.duration} min {mode === 'walking' ? 'walk' : 'drive'}</span>
+          {route.receipt?.length > 0 && (
+            <div className="route-receipt">
+              {route.receipt.map((line, i) => <div key={i}>{line}</div>)}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -319,6 +376,7 @@ export default function App() {
 
             <div className="chat-messages">
               <RouteTracker pins={pins} pinNames={pinNames} route={route} loading={loading} mode={mode} error={routeError} />
+              {route && <GoNowButton safetyScore={route.safetyScore} />}
               {pins.start && pins.dest && (
                 <button className="clear-btn" onClick={() => { setPins({ start: null, dest: null }); setRoute(null) }}>
                   Clear route

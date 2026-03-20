@@ -143,6 +143,32 @@ const Map = forwardRef(function Map({ center = [-74.006, 40.7128], zoom = 12, ro
         layout: { 'line-join': 'round', 'line-cap': 'round' },
       })
 
+      // Load 24h incidents
+      try {
+        const incRes = await fetch('http://localhost:3001/api/incidents')
+        const incidents = await incRes.json()
+        incidents.features?.forEach(f => {
+          const { type, descriptor, status, address, time } = f.properties
+          const el = document.createElement('div')
+          el.className = 'incident-marker'
+          el.innerHTML = '⚠'
+          const timeStr = new Date(time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          const statusColor = status?.toLowerCase() === 'open' ? '#ef4444' : status?.toLowerCase() === 'in progress' ? '#f97316' : '#22c55e'
+          new mapboxgl.Marker({ element: el })
+            .setLngLat(f.geometry.coordinates)
+            .setPopup(new mapboxgl.Popup({ offset: 12, maxWidth: '260px' }).setHTML(`
+              <div style="font-family:Inter,sans-serif;font-size:12px;color:#c9d1d9;line-height:1.7">
+                <div style="font-size:13px;font-weight:700;color:#f97316;margin-bottom:6px">🚨 ${type}</div>
+                <div>${descriptor ?? 'No details available'}</div>
+                ${address ? `<div style="color:#7d8590;margin-top:4px">📍 ${address}</div>` : ''}
+                <div style="margin-top:4px">🕐 ${timeStr}</div>
+                <div style="margin-top:4px">Status: <strong style="color:${statusColor}">${status ?? 'Unknown'}</strong></div>
+              </div>
+            `))
+            .addTo(map)
+        })
+      } catch { /* incidents optional */ }
+
       const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false })
       map.on('mousemove', 'zones-fill', (e) => {
         map.getCanvas().style.cursor = 'crosshair'
@@ -208,7 +234,7 @@ const Map = forwardRef(function Map({ center = [-74.006, 40.7128], zoom = 12, ro
       const mid = coords[Math.floor(coords.length / 2)]
       const lines = (route.receipt ?? [`🛡️ ${route.safetyScore}% safe`, `⏱ ~${route.duration} min`])
         .map(l => `<div style="margin-bottom:3px">${l}</div>`).join('')
-      routePopupRef.current = new mapboxgl.Popup({ closeButton: true, maxWidth: '280px' })
+      routePopupRef.current = new mapboxgl.Popup({ closeButton: true, maxWidth: '280px', offset: [0, -20] })
         .setLngLat(mid)
         .setHTML(`<div style="font-family:Inter,sans-serif;font-size:12px;color:#c9d1d9;line-height:1.6">
           <div style="font-size:13px;font-weight:700;color:#60a5fa;margin-bottom:8px">🗺️ Safest Route</div>
@@ -218,10 +244,10 @@ const Map = forwardRef(function Map({ center = [-74.006, 40.7128], zoom = 12, ro
 
       if (dr) {
         const dCoords = dr.geometry.coordinates
-        const dMid = dCoords[Math.floor(dCoords.length / 2)]
+        const dMid = dCoords[Math.floor(dCoords.length * 0.35)]
         const wLines = (dr.warning ?? [`⚠️ Safety: ${dr.safetyScore}%`])
           .map(l => `<div style="margin-bottom:3px">${l}</div>`).join('')
-        dangerPopupRef.current = new mapboxgl.Popup({ closeButton: true, maxWidth: '260px', offset: [0, -10] })
+        dangerPopupRef.current = new mapboxgl.Popup({ closeButton: true, maxWidth: '260px', offset: [0, 20] })
           .setLngLat(dMid)
           .setHTML(`<div style="font-family:Inter,sans-serif;font-size:12px;color:#c9d1d9;line-height:1.6">
             <div style="font-size:13px;font-weight:700;color:#ef4444;margin-bottom:8px">⚠️ Risky Route</div>

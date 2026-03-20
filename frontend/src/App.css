@@ -65,9 +65,9 @@ html, body, #root {
   animation: slideUp 0.25s ease;
   display: flex;
   flex-direction: column;
-  resize: vertical;
   min-height: 320px;
-  max-height: 80vh;
+  height: min(560px, calc(100vh - 180px));
+  max-height: calc(100vh - 180px);
 }
 
 @keyframes slideUp {
@@ -388,67 +388,57 @@ html, body, #root {
 /* ── Route Tracker ── */
 .route-tracker {
   display: flex;
+  flex-direction: column;
   gap: 14px;
   padding: 16px;
-  align-items: flex-start;
 }
 
-.route-path-svg {
-  width: 44px;
+/* Horizontal path row */
+.route-path-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+}
+
+.route-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
   flex-shrink: 0;
 }
 
-@keyframes drawPath {
-  from { stroke-dashoffset: 200; }
-  to   { stroke-dashoffset: 0; }
-}
-.route-path-fill {
-  stroke-dasharray: 200;
-  stroke-dashoffset: 200;
-  animation: drawPath 0.8s ease forwards;
-}
-
-.route-labels {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding-top: 8px;
-}
-
-.route-label {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.label-title {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: #484f58;
-}
-
-.route-label.set .label-title { color: #7d8590; }
-
-.label-name {
-  font-size: 13px;
-  color: #484f58;
+.node-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #7d8590;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 200px;
+  max-width: 100px;
+  text-align: center;
 }
 
-.route-label.set .label-name { color: #e6edf3; font-weight: 500; }
+.route-path-line {
+  flex: 1;
+  height: 24px;
+  margin-top: 20px; /* align with node circles */
+}
 
-.route-label-spacer { flex: 1; min-height: 48px; }
+@keyframes drawPath {
+  from { stroke-dashoffset: 400; }
+  to   { stroke-dashoffset: 0; }
+}
+.h-path-fill {
+  stroke-dasharray: 400;
+  stroke-dashoffset: 400;
+  animation: drawPath 0.8s ease forwards;
+}
 
 .route-finding {
   font-size: 12px;
   color: #7d8590;
-  margin-top: 10px;
   animation: pulse 1.2s ease-in-out infinite;
 }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
@@ -457,7 +447,6 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-top: 10px;
   font-size: 12px;
   color: #60a5fa;
   font-weight: 500;
@@ -465,9 +454,8 @@ html, body, #root {
 
 .route-hint {
   font-size: 12px;
-  color: #484f58;
+  color: #8b949e;
   line-height: 1.5;
-  margin-top: 12px;
 }
 
 .submit-route-btn {
@@ -555,3 +543,91 @@ html, body, #root {
   flex-direction: column;
   gap: 3px;
 }
+
+.rocky-intro {
+  font-size: 12.5px;
+  color: #c9d1d9;
+  line-height: 1.7;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rocky-intro strong { color: #e6edf3; }
+.rocky-intro ol {
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.rocky-intro li { color: #c9d1d9; }
+
+/* ── Incident alert markers ── */
+.incident-marker {
+  width: 14px;
+  height: 14px;
+  background: rgba(249, 115, 22, 0.7);
+  border: 1px solid rgba(251, 146, 60, 0.8);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  cursor: pointer;
+  box-shadow: 0 0 5px rgba(249,115,22,0.4);
+  animation: incidentPulse 3s ease-in-out infinite;
+  transition: transform 0.2s;
+}
+@keyframes incidentPulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(249,115,22,0.3); }
+  50%       { box-shadow: 0 0 9px rgba(249,115,22,0.6); }
+}
+
+/* ── Go Now button ── */
+.go-now-wrap {
+  margin-top: 12px;
+}
+
+.go-now-btn {
+  width: 100%;
+  padding: 9px 0;
+  background: #1c2333;
+  border: 1px solid rgba(99,179,237,0.25);
+  border-radius: 8px;
+  color: #c9d1d9;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.go-now-btn:hover { background: #21262d; border-color: rgba(99,179,237,0.5); }
+
+.go-now-result {
+  background: #0d1117;
+  border: 1px solid rgba(99,179,237,0.15);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.go-now-emoji { font-size: 22px; }
+
+.go-now-result p {
+  font-size: 12.5px;
+  color: #c9d1d9;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.go-now-reset {
+  background: none;
+  border: none;
+  color: #484f58;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  padding: 0;
+}
+.go-now-reset:hover { color: #7d8590; }

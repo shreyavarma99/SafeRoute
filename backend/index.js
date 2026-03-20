@@ -239,4 +239,35 @@ app.post('/api/route', async (req, res) => {
   }
 })
 
+// GET /api/incidents — recent incidents with description + status
+app.get('/api/incidents', async (req, res) => {
+  try {
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 19)
+    const url =
+      `https://data.cityofnewyork.us/resource/erm2-nwe9.json` +
+      `?$limit=500` +
+      `&$where=created_date>'${since}' AND latitude IS NOT NULL` +
+      `&$order=created_date DESC` +
+      `&$select=latitude,longitude,complaint_type,descriptor,status,created_date,incident_address`
+    const data = await (await fetch(url)).json()
+    const features = data
+      .filter(d => d.latitude && d.longitude)
+      .map(d => ({
+        type: 'Feature',
+        properties: {
+          type: d.complaint_type,
+          descriptor: d.descriptor,
+          status: d.status,
+          address: d.incident_address,
+          time: d.created_date,
+        },
+        geometry: { type: 'Point', coordinates: [parseFloat(d.longitude), parseFloat(d.latitude)] },
+      }))
+    res.json({ type: 'FeatureCollection', features })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
 app.listen(3001, () => console.log('SafeRoute backend running on http://localhost:3001'))
