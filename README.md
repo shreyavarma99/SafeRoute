@@ -3,9 +3,7 @@
 
 ---
 
-As someone who's lived in cities her whole life, I know how exciting urban life can be — but also how unpredictable. I've heard too many stories of friends getting mugged, followed, or ending up in a sketchy area simply because their maps app told them it was the fastest route. Navigation apps are great at getting you there quickly. None of them tell you whether you should be walking that route at 11pm.
-
-SafeRoute is built to change that.
+SafeRoute is your digital twin for city safety. It maps live crime and incident data across every city block — updated every 5 minutes — and uses it to find you the safest route to your destination, not just the fastest one. It tells you which path to take, which one to avoid and why, and whether you should even head out at all.
 
 ---
 
