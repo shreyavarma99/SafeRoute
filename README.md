@@ -171,7 +171,8 @@ Currently, running SafeRoute locally requires your own Mapbox token for maps and
 ---
 
 ## How It All Fits Together
-<img width="1336" height="1106" alt="image" src="https://github.com/user-attachments/assets/e08feaf3-1309-470b-805d-f6b2b31373de" />
+<img width="1336" height="1106" alt="image" src="https://github.com/user-attachments/assets/4c55c5d1-eb7d-4550-9551-9cffc2983d93" />
+
 
 ```
   NYC Open Data (NYPD + 311)
