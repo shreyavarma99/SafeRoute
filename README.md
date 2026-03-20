@@ -130,7 +130,6 @@ Install and start:
 npm install
 node index.js
 ```
-> Backend runs on http://localhost:3001
 
 **3. Set up the frontend** *(open a new terminal)*
 ```bash
@@ -148,7 +147,6 @@ Install and start:
 npm install
 npm run dev
 ```
-> Frontend runs on http://localhost:5173
 
 **4. Open the app**
 
@@ -175,6 +173,7 @@ Currently, running SafeRoute locally requires your own Mapbox token for maps and
 ---
 
 ## How It All Fits Together
+<img width="1336" height="1106" alt="image" src="https://github.com/user-attachments/assets/e08feaf3-1309-470b-805d-f6b2b31373de" />
 
 ```
   NYC Open Data (NYPD + 311)
