@@ -201,7 +201,7 @@ Currently, running SafeRoute locally requires your own Mapbox token for maps and
   │  → should you go now?   │
   └─────────────────────────┘
 ```
-**Github Link:** 
+**Github Link:** https://github.com/shreyavarma99/SafeRoute.git
 **Demo:** https://youtu.be/pKm8eia1rws
 ---
 
